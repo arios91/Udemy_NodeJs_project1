@@ -6,7 +6,7 @@ const methodOverride = require('method-override');
 const flash = require('connect-flash');
 const session = require('express-session');
 const mongoose = require('mongoose');
-
+const passport = require('passport');
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -16,10 +16,16 @@ const ideas = require('./routes/ideas');
 //load users routes
 const users = require('./routes/users');
 
+//load passport config
+require('./config/passport')(passport);
+
+//load db config
+const db = require('./config/database');
+
 //connect to mongoose, pass in database as param
 //since it responds with a promise, you have to use .then after
 //if you want to catch errors, use .catch
-mongoose.connect('mongodb://localhost:27017/vidjot-dev', {
+mongoose.connect(db.mongoURI, {
     useNewUrlParser: true
 })
 .then(() =>{
@@ -45,6 +51,10 @@ app.use(session({
     saveUninitialized: true
 }));
 
+//passport middleware, NEEDS TO BE AFTER EXPRESSSESSION
+app.use(passport.initialize());
+app.use(passport.session());
+
 //flash middleware
 app.use(flash());
 
@@ -56,6 +66,7 @@ app.use((req, res, next) => {
     res.locals.successMessage = req.flash('successMessage');
     res.locals.errorMessage = req.flash('errorMessage');
     res.locals.error = req.flash('error');
+    res.locals.user = req.user || null;
     next();
 });
 

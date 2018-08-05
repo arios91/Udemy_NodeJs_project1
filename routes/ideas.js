@@ -1,15 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-require('../models/Idea');
+//bring in authenticated helper
+const {ensureAuthenticated} = require('../helpers/auth');
 
 //load idea model
+require('../models/Idea');
 const Idea = mongoose.model('ideas');
 
-//ideas index route
-router.get('/', (req, res) => {
+//ideas index route, add authentica helper in parameters
+router.get('/', ensureAuthenticated, (req, res) => {
     //call db to get Idea, returns a promise
-    Idea.find({})
+    Idea.find({user: req.user.id})
     .sort({date:'desc'})
     .then(ideas => {
         res.render('ideas/index', {
@@ -18,26 +20,32 @@ router.get('/', (req, res) => {
     })
 })
 
-//add idea form
-router.get('/add', (req, res) => {
+//add idea form, add authentica helper in parameters
+router.get('/add', ensureAuthenticated, (req, res) => {
     res.render('ideas/add');
 })
 
-//edit idea form
-router.get('/edit/:id', (req, res) => {
+//edit idea form, add authentica helper in parameters
+router.get('/edit/:id', ensureAuthenticated, (req, res) => {
     //need to fetch idea by id
     Idea.findOne({
-        _id: req.params.id
+        _id: req.params.id,
     })
     .then(idea =>{
-        res.render('ideas/edit', {
-            idea: idea
-        });
+        //if idea does not belong to user, kick them out
+        if(idea.user != req.user.id){
+            req.flash('errorMessage', 'Not authorized to edit this idea');
+            res.redirect('/ideas');
+        }else{
+            res.render('ideas/edit', {
+                idea: idea
+            });
+        }
     })
 })
 
-//process form
-router.post('/', (req, res) => {
+//process form, add authentica helper in parameters
+router.post('/', ensureAuthenticated, (req, res) => {
     let errors = [];
     if(!req.body.title){
         errors.push({text:'Please add a title'});
@@ -49,12 +57,13 @@ router.post('/', (req, res) => {
         res.render('ideas/add', {
             errors: errors,
             title: req.body.title,
-            details: req.body.details
+            details: req.body.details,
         })
     }else{
         const newIdea = {
             title: req.body.title,
-            details: req.body.details
+            details: req.body.details,
+            user: req.user.id
         }
         //returns a promise
         new Idea(newIdea)
@@ -66,8 +75,8 @@ router.post('/', (req, res) => {
     }
 });
 
-//edit form process
-router.put('/:id', (req,res) =>{
+//edit form process, add authentica helper in parameters
+router.put('/:id', ensureAuthenticated, (req,res) =>{
     //returns a promise
     Idea.findOne({
         _id: req.params.id
@@ -85,7 +94,7 @@ router.put('/:id', (req,res) =>{
 });
 
 //delete idea
-router.delete('/:id', (req, res) => {
+router.delete('/:id', ensureAuthenticated, (req, res) => {
     Idea.remove({
         _id: req.params.id
     })
